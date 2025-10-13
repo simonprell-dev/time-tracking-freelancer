@@ -1,6 +1,7 @@
 # Time Tracker Application
 
 A full-stack time tracking application built with React and Go, designed for freelancers and remote workers to track their time, manage projects, and generate invoices.
+You can also contribute in this repository
 
 ## Features
 
