@@ -1,7 +1,6 @@
 // src/contexts/AuthContext.tsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isAxiosError } from 'axios';
 import { authApi } from '@/api/auth';
 
 interface User {
@@ -56,7 +55,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(true);
       navigate('/');
     } catch (error) {
-      throw new Error(getAuthErrorMessage(error, 'Invalid credentials'));
+      throw error instanceof Error ? error : new Error('Invalid credentials');
     }
   };
 
@@ -67,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsAuthenticated(true);
       navigate('/');
     } catch (error) {
-      throw new Error(getAuthErrorMessage(error, 'Registration failed'));
+      throw error instanceof Error ? error : new Error('Registration failed');
     }
   };
 
@@ -130,12 +129,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
-
-function getAuthErrorMessage(error: unknown, fallback: string) {
-  if (isAxiosError<{ error?: string }>(error)) {
-    return error.response?.data?.error || fallback;
-  }
-
-  return fallback;
 }

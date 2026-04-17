@@ -73,6 +73,7 @@ JWT_SECRET=${jwt_secret}
 DATABASE_URL=host=127.0.0.1 user=${DB_USER} password=${DB_PASSWORD} dbname=${DB_NAME} port=5432 sslmode=disable
 PORT=8080
 GIN_MODE=release
+CORS_ORIGINS=http://$(hostname -I | awk '{print $1}')
 EOF
   chown root:"${APP_USER}" "${ENV_FILE}"
   chmod 640 "${ENV_FILE}"
