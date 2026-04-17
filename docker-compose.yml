@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timetracker
+      POSTGRES_USER: timetracker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timetracker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timetracker -d timetracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: host=db user=timetracker password=${POSTGRES_PASSWORD:-timetracker} dbname=timetracker port=5432 sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-change-this-local-secret}
+      PORT: 8080
+      GIN_MODE: release
+
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-3000}:80"
+
+volumes:
+  postgres_data:

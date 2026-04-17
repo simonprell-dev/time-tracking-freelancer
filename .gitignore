@@ -1,0 +1,22 @@
+# Runtime and build output
+client/node_modules
+client/dist
+client/tsconfig.tsbuildinfo
+backend/timetracker
+
+# Local configuration
+.env
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS/editor noise
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+

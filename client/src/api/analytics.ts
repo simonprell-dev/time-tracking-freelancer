@@ -1,5 +1,4 @@
 import axios from '@/lib/axios';
-import { Analytics } from '@/types';
 
 interface AnalyticsResponse {
   date: string;

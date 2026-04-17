@@ -75,6 +75,7 @@ export default function RegisterPage() {
                 placeholder="Create a password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                minLength={8}
                 required
               />
             </div>
@@ -88,6 +89,7 @@ export default function RegisterPage() {
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                minLength={8}
                 required
               />
             </div>

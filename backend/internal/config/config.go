@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"os"
 
@@ -17,7 +18,7 @@ type Config struct {
 var AppConfig Config
 
 func LoadConfig() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Printf("Error loading .env file: %v", err)
 	}
 

@@ -1,0 +1,15 @@
+.git
+.gitignore
+README.md
+LICENSE
+images
+deploy
+
+client/node_modules
+client/dist
+client/.env
+client/*.local
+
+backend/.env
+backend/timetracker
+

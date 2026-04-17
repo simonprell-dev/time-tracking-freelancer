@@ -4,7 +4,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '@/api/projects';
 import { timeEntriesApi } from '@/api/time-entries';
-import { tasksApi } from '@/api/tasks';
 import { Button } from '@/components/common/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
@@ -27,11 +26,6 @@ export default function ProjectDetails() {
   const { data: timeEntries } = useQuery({
     queryKey: ['time-entries', id],
     queryFn: () => timeEntriesApi.getAll(Number(id))
-  });
-
-  const { data: tasks } = useQuery({
-    queryKey: ['tasks', id],
-    queryFn: () => tasksApi.getAll(Number(id))
   });
 
   const deleteMutation = useMutation({

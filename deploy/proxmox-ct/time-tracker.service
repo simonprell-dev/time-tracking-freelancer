@@ -1,0 +1,18 @@
+[Unit]
+Description=Time Tracker API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=timetracker
+Group=timetracker
+WorkingDirectory=/opt/time-tracker/app/backend
+EnvironmentFile=/etc/time-tracker/time-tracker.env
+ExecStart=/opt/time-tracker/app/backend/timetracker
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

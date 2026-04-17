@@ -223,6 +223,50 @@ npm run build
 npm run preview
 ```
 
+## Proxmox CT Deployment
+
+Deployment files for a persistent Debian/Ubuntu Proxmox container live in [`deploy/proxmox-ct`](deploy/proxmox-ct).
+
+One-command install inside a fresh CT:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/simonprell-dev/time-tracking-freelancer/main/deploy/proxmox-ct/setup.sh)"
+```
+
+Manual install inside a fresh CT:
+
+```bash
+apt-get update
+apt-get install -y git
+git clone <your-repo-url> /root/time-tracker
+cd /root/time-tracker
+sudo bash deploy/proxmox-ct/install.sh
+```
+
+Update later without replacing persistent data:
+
+```bash
+sudo bash /opt/time-tracker/app/deploy/proxmox-ct/update.sh
+```
+
+The CT deployment keeps configuration in `/etc/time-tracker/time-tracker.env`, stores PostgreSQL data in the normal PostgreSQL data directory, and creates database backups under `/var/backups/time-tracker` before updates.
+
+## Docker Deployment
+
+Run the production stack locally with Docker:
+
+```bash
+docker compose up --build -d
+```
+
+Open `http://localhost:3000`.
+
+Persistent PostgreSQL data is stored in the `postgres_data` Docker volume. Optional local overrides:
+
+```bash
+APP_PORT=8088 POSTGRES_PASSWORD=change-me JWT_SECRET=change-me docker compose up --build -d
+```
+
 ## Contributing
 
 1. Fork the repository

@@ -1,12 +1,6 @@
 import axios from '@/lib/axios';
 import { Project } from '@/types';
 
-interface CreateProjectRequest {
-  name: string;
-  description: string;
-  hourlyRate: number;
-}
-
 // Type for the backend response
 interface ProjectResponse {
   ID: number;
