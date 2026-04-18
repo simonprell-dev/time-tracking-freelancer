@@ -29,15 +29,22 @@ func main() {
 	// Initialize router
 	r := gin.Default()
 
-	// CORS middleware
-	r.Use(cors.New(cors.Config{
+	corsConfig := cors.Config{
 		AllowOrigins:     config.AppConfig.CORSOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
-	}))
+	}
+	if allowsAnyOrigin(config.AppConfig.CORSOrigins) {
+		corsConfig.AllowOrigins = nil
+		corsConfig.AllowAllOrigins = true
+		corsConfig.AllowCredentials = false
+	}
+
+	// CORS middleware
+	r.Use(cors.New(corsConfig))
 
 	// Routes
 	api := r.Group("/api")
@@ -91,4 +98,13 @@ func main() {
 	log.Printf("Server starting on port %s", port)
 	r.Run(":" + port)
 
+}
+
+func allowsAnyOrigin(origins []string) bool {
+	for _, origin := range origins {
+		if origin == "*" {
+			return true
+		}
+	}
+	return false
 }

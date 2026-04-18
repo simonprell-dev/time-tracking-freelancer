@@ -267,6 +267,12 @@ Persistent PostgreSQL data is stored in the `postgres_data` Docker volume. Optio
 APP_PORT=8088 POSTGRES_PASSWORD=change-me JWT_SECRET=change-me docker compose up --build -d
 ```
 
+By default the Docker stack accepts browser requests from any origin, so it works when opened through a Proxmox host IP or DNS name. To restrict it, set `CORS_ORIGINS` explicitly:
+
+```bash
+CORS_ORIGINS=http://YOUR-SERVER-IP:3000 docker compose up --build -d
+```
+
 ## Contributing
 
 1. Fork the repository

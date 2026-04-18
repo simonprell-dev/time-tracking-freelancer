@@ -36,8 +36,29 @@ export const authApi = {
 };
 
 function getApiErrorMessage(error: unknown, fallback: string) {
-  if (isAxiosError<{ error?: string }>(error)) {
-    return error.response?.data?.error || fallback;
+  if (!isAxiosError(error)) {
+    return fallback;
+  }
+
+  if (!error.response) {
+    return 'Backend is not reachable. Please check that the server is running.';
+  }
+
+  const { data, status } = error.response;
+
+  if (typeof data === 'object' && data !== null && 'error' in data) {
+    const message = (data as { error?: unknown }).error;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  if (typeof data === 'string' && data.trim() && !data.trim().startsWith('<')) {
+    return data;
+  }
+
+  if (status >= 500) {
+    return 'Server error. Please check the backend logs.';
   }
 
   return fallback;
