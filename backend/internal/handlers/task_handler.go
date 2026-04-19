@@ -10,6 +10,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type taskRequest struct {
+	Title       string            `json:"title" binding:"required"`
+	Description string            `json:"description"`
+	Status      string            `json:"status"`
+	Tags        models.StringList `json:"tags"`
+	ProjectID   uint              `json:"project_id" binding:"required"`
+}
+
 func GetTasks(c *gin.Context) {
 	userID := utils.GetUserID(c)
 	projectID := c.Query("project_id")
@@ -42,12 +50,31 @@ func GetTask(c *gin.Context) {
 }
 
 func CreateTask(c *gin.Context) {
-	var task models.Task
-	if err := c.ShouldBindJSON(&task); err != nil {
+	var req taskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	userID := utils.GetUserID(c)
+	if !projectBelongsToUser(req.ProjectID, userID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Project not found"})
+		return
+	}
+
+	status := req.Status
+	if status == "" {
+		status = "TODO"
+	}
+
+	task := models.Task{
+		Title:       req.Title,
+		Description: req.Description,
+		Status:      status,
+		Tags:        req.Tags,
+		ProjectID:   req.ProjectID,
+		UserID:      userID,
+	}
 	task.UserID = utils.GetUserID(c)
 
 	if err := database.DB.Create(&task).Error; err != nil {
@@ -68,13 +95,24 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	var updates models.Task
+	var updates taskRequest
 	if err := c.ShouldBindJSON(&updates); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := database.DB.Model(&task).Updates(updates).Error; err != nil {
+	if !projectBelongsToUser(updates.ProjectID, userID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Project not found"})
+		return
+	}
+
+	task.Title = updates.Title
+	task.Description = updates.Description
+	task.Status = updates.Status
+	task.Tags = updates.Tags
+	task.ProjectID = updates.ProjectID
+
+	if err := database.DB.Save(&task).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
 		return
 	}
@@ -98,4 +136,15 @@ func DeleteTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Task deleted successfully"})
+}
+
+func projectBelongsToUser(projectID uint, userID uint) bool {
+	var count int64
+	if err := database.DB.Model(&models.Project{}).
+		Where("id = ? AND user_id = ?", projectID, userID).
+		Count(&count).Error; err != nil {
+		return false
+	}
+
+	return count > 0
 }

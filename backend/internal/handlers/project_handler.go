@@ -55,13 +55,28 @@ func CreateProject(c *gin.Context) {
 // Continue with UpdateProject and DeleteProject...
 
 func UpdateProject(c *gin.Context) {
+	projectID := c.Param("id")
+	userID := utils.GetUserID(c)
+
 	var project models.Project
-	if err := c.ShouldBindJSON(&project); err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", projectID, userID).First(&project).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	var updates models.Project
+	if err := c.ShouldBindJSON(&updates); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	project.UserID = utils.GetUserID(c)
+	project.Name = updates.Name
+	project.Description = updates.Description
+	project.HourlyRate = updates.HourlyRate
+	project.ClientName = updates.ClientName
+	project.ClientCompany = updates.ClientCompany
+	project.ClientAddress = updates.ClientAddress
+	project.ClientEmail = updates.ClientEmail
 
 	if err := database.DB.Save(&project).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating project"})

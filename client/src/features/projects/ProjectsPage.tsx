@@ -6,7 +6,14 @@ import { Button } from '@/components/common/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { PlusIcon } from 'lucide-react';
 import { ProjectForm } from '@/components/forms/ProjectForm';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 export default function ProjectsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -36,6 +43,10 @@ export default function ProjectsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Project</DialogTitle>
+              <DialogDescription>Add project, rate, and reusable client billing details.</DialogDescription>
+            </DialogHeader>
             <ProjectForm onSuccess={() => setIsCreateModalOpen(false)} />
           </DialogContent>
         </Dialog>

@@ -9,6 +9,10 @@ export interface Project {
   name: string;
   description: string;
   hourlyRate: number;
+  clientName: string;
+  clientCompany: string;
+  clientAddress: string;
+  clientEmail: string;
   userId: number;
 }
 
@@ -20,6 +24,7 @@ export interface TimeEntry {
   projectId: number;
   taskId?: number;
   userId: number;
+  invoiceId?: number;
 }
 
 export interface Task {

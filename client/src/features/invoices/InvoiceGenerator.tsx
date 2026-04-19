@@ -1,6 +1,6 @@
 // src/features/invoices/InvoiceGenerator.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,6 +16,7 @@ import {
 
 import { invoicesApi } from '@/api/invoices';
 import { projectsApi } from '@/api/projects';
+import { timeEntriesApi } from '@/api/time-entries';
 import { Button } from '@/components/common/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
 import { Input } from '@/components/common/Input';
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/common/Select';
+import { formatDuration } from '@/lib/utils';
 
 interface InvoiceEntry {
   date: string;
@@ -34,6 +36,10 @@ interface InvoiceEntry {
 }
 
 interface InvoiceData {
+  id: number;
+  number: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  language: 'en' | 'de';
   projectName: string;
   startDate: string;
   endDate: string;
@@ -60,6 +66,43 @@ interface InvoicePreset {
 type MarkdownLine = {
   text: string;
   style: 'heading' | 'bullet' | 'normal';
+};
+
+const invoiceCopy = {
+  en: {
+    invoice: 'INVOICE',
+    billTo: 'Bill To',
+    project: 'Project',
+    invoiceDate: 'Invoice Date',
+    billingPeriod: 'Billing Period',
+    date: 'Date',
+    description: 'Description',
+    hours: 'Hours',
+    amount: 'Amount',
+    hourlyRate: 'Hourly Rate',
+    totalHours: 'Total Hours',
+    totalAmount: 'Total Amount',
+    paymentDetails: 'Payment Details',
+    generated: 'Generated',
+    defaultDescription: 'Time tracking',
+  },
+  de: {
+    invoice: 'RECHNUNG',
+    billTo: 'Rechnung an',
+    project: 'Projekt',
+    invoiceDate: 'Rechnungsdatum',
+    billingPeriod: 'Leistungszeitraum',
+    date: 'Datum',
+    description: 'Beschreibung',
+    hours: 'Stunden',
+    amount: 'Betrag',
+    hourlyRate: 'Stundensatz',
+    totalHours: 'Stunden gesamt',
+    totalAmount: 'Gesamtbetrag',
+    paymentDetails: 'Zahlungsdetails',
+    generated: 'Erstellt',
+    defaultDescription: 'Zeiterfassung',
+  },
 };
 
 const PRESETS_STORAGE_KEY = 'time-tracker.invoice-presets';
@@ -169,21 +212,21 @@ const addMarkdownBlock = (
   if (lines.length === 0) return y;
 
   doc.setFontSize(11);
-  doc.setFont('', 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(title, x, y);
   let cursorY = y + 7;
 
   lines.forEach((line) => {
     if (line.style === 'heading') {
       doc.setFontSize(10);
-      doc.setFont('', 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(line.text, x, cursorY);
       cursorY += 6;
       return;
     }
 
     doc.setFontSize(9);
-    doc.setFont('', 'normal');
+    doc.setFont('helvetica', 'normal');
     const prefix = line.style === 'bullet' ? '- ' : '';
     const wrapped = doc.splitTextToSize(`${prefix}${line.text}`, maxWidth);
     doc.text(wrapped, x, cursorY);
@@ -194,48 +237,76 @@ const addMarkdownBlock = (
 };
 
 const generateInvoiceNumber = (preset: InvoicePreset, data: InvoiceData) => {
+  if (data.number) return data.number;
+
   const datePart = format(new Date(data.endDate), 'yyyyMMdd');
   const projectPart = data.projectName.replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase();
   return `${preset.invoicePrefix}-${datePart}-${projectPart || 'WORK'}`;
 };
 
-const generatePDF = (data: InvoiceData, preset: InvoicePreset) => {
+const getProjectClientDetails = (
+  project:
+    | {
+        clientName?: string;
+        clientCompany?: string;
+        clientAddress?: string;
+        clientEmail?: string;
+      }
+    | undefined,
+  fallback: string
+) => {
+  if (!project) return fallback;
+
+  const details = [
+    project.clientName,
+    project.clientCompany,
+    project.clientAddress,
+    project.clientEmail,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return details || fallback;
+};
+
+const generatePDF = (data: InvoiceData, preset: InvoicePreset, clientDetails: string) => {
   const doc = new jsPDF();
   const accent = hexToRgb(preset.accentColor);
   const invoiceNumber = generateInvoiceNumber(preset, data);
+  const labels = invoiceCopy[data.language || 'en'];
 
   doc.setFillColor(...accent);
   doc.rect(0, 0, 210, 18, 'F');
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
-  doc.setFont('', 'bold');
-  doc.text('INVOICE', 14, 12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(labels.invoice, 14, 12);
 
   doc.setFontSize(10);
-  doc.setFont('', 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(invoiceNumber, 196, 12, { align: 'right' });
 
   doc.setTextColor(20, 20, 20);
   doc.setFontSize(16);
-  doc.setFont('', 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(preset.brandName, 14, 32);
 
   doc.setFontSize(9);
-  doc.setFont('', 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(preset.senderDetails.split('\n'), 14, 40);
 
-  doc.setFont('', 'bold');
-  doc.text('Bill To', 126, 32);
-  doc.setFont('', 'normal');
-  doc.text(preset.clientDetails.split('\n'), 126, 40);
+  doc.setFont('helvetica', 'bold');
+  doc.text(labels.billTo, 126, 32);
+  doc.setFont('helvetica', 'normal');
+  doc.text(clientDetails.split('\n'), 126, 40);
 
-  doc.setFont('', 'bold');
-  doc.text('Project', 14, 68);
-  doc.text('Invoice Date', 82, 68);
-  doc.text('Billing Period', 126, 68);
+  doc.setFont('helvetica', 'bold');
+  doc.text(labels.project, 14, 68);
+  doc.text(labels.invoiceDate, 82, 68);
+  doc.text(labels.billingPeriod, 126, 68);
 
-  doc.setFont('', 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(data.projectName, 14, 75);
   doc.text(format(new Date(), 'PP'), 82, 75);
   doc.text(
@@ -246,13 +317,13 @@ const generatePDF = (data: InvoiceData, preset: InvoicePreset) => {
 
   const tableData = data.entries.map((entry) => [
     format(new Date(entry.date), 'PP'),
-    entry.description || 'Time tracking',
+    entry.description || labels.defaultDescription,
     entry.hours.toFixed(2),
     currency(entry.hours * data.hourlyRate, preset.currency),
   ]);
 
   autoTable(doc, {
-    head: [['Date', 'Description', 'Hours', 'Amount']],
+    head: [[labels.date, labels.description, labels.hours, labels.amount]],
     body: tableData,
     startY: 88,
     theme: 'grid',
@@ -269,9 +340,9 @@ const generatePDF = (data: InvoiceData, preset: InvoicePreset) => {
     },
     columnStyles: {
       0: { cellWidth: 36 },
-      1: { cellWidth: 82 },
-      2: { cellWidth: 24, halign: 'right' },
-      3: { cellWidth: 34, halign: 'right' },
+      1: { cellWidth: 80 },
+      2: { cellWidth: 22, halign: 'right' },
+      3: { cellWidth: 32, halign: 'right' },
     },
   });
 
@@ -279,16 +350,16 @@ const generatePDF = (data: InvoiceData, preset: InvoicePreset) => {
   const totalY = finalY + 13;
 
   doc.setFontSize(10);
-  doc.setFont('', 'normal');
-  doc.text('Hourly Rate', 126, totalY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(labels.hourlyRate, 126, totalY);
   doc.text(currency(data.hourlyRate, preset.currency), 196, totalY, { align: 'right' });
-  doc.text('Total Hours', 126, totalY + 7);
+  doc.text(labels.totalHours, 126, totalY + 7);
   doc.text(data.totalHours.toFixed(2), 196, totalY + 7, { align: 'right' });
 
   doc.setFillColor(245, 247, 250);
   doc.rect(122, totalY + 12, 76, 12, 'F');
-  doc.setFont('', 'bold');
-  doc.text('Total Amount', 126, totalY + 20);
+  doc.setFont('helvetica', 'bold');
+  doc.text(labels.totalAmount, 126, totalY + 20);
   doc.text(currency(data.totalAmount, preset.currency), 196, totalY + 20, { align: 'right' });
 
   const detailsY = Math.max(totalY + 36, 178);
@@ -296,14 +367,14 @@ const generatePDF = (data: InvoiceData, preset: InvoicePreset) => {
   addMarkdownBlock(doc, 'Terms', preset.termsMarkdown, 110, detailsY, 86);
 
   doc.setFontSize(9);
-  doc.setFont('', 'bold');
-  doc.text('Payment Details', 14, Math.min(nextY, 258));
-  doc.setFont('', 'normal');
+  doc.setFont('helvetica', 'bold');
+  doc.text(labels.paymentDetails, 14, Math.min(nextY, 258));
+  doc.setFont('helvetica', 'normal');
   doc.text(preset.paymentDetails.split('\n'), 14, Math.min(nextY + 7, 265));
 
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Generated ${format(new Date(), 'PPpp')}`, 105, 286, { align: 'center' });
+  doc.text(`${labels.generated} ${format(new Date(), 'PPpp')}`, 105, 286, { align: 'center' });
 
   doc.save(`${invoiceNumber}-${data.projectName}.pdf`);
 };
@@ -322,11 +393,10 @@ const PresetField = ({
 );
 
 export default function InvoiceGenerator() {
+  const queryClient = useQueryClient();
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: '',
-  });
+  const [language, setLanguage] = useState<'en' | 'de'>('en');
+  const [selectedTimeEntryIds, setSelectedTimeEntryIds] = useState<number[]>([]);
   const [presets, setPresets] = useState<InvoicePreset[]>(getInitialPresets);
   const [activePresetId, setActivePresetId] = useState(() => getInitialActivePresetId(presets));
   const [draftPreset, setDraftPreset] = useState<InvoicePreset>(() => presets[0]);
@@ -341,9 +411,37 @@ export default function InvoiceGenerator() {
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
   });
+  const { data: unbilledEntries, isLoading: isUnbilledLoading } = useQuery({
+    queryKey: ['time-entries', selectedProjectId, 'unbilled'],
+    queryFn: () => timeEntriesApi.getAll(selectedProjectId || undefined, { unbilled: true }),
+  });
+  const { data: invoices } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: invoicesApi.getAll,
+  });
+  const selectedProject = useMemo(
+    () => projects?.find((project) => project.id === selectedProjectId),
+    [projects, selectedProjectId]
+  );
+  const invoiceClientDetails = useMemo(
+    () => getProjectClientDetails(selectedProject, activePreset.clientDetails),
+    [activePreset.clientDetails, selectedProject]
+  );
 
   const generateMutation = useMutation({
     mutationFn: invoicesApi.generate,
+    onSuccess: () => {
+      setSelectedTimeEntryIds([]);
+      queryClient.invalidateQueries({ queryKey: ['time-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+  });
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'draft' | 'sent' | 'paid' | 'overdue' }) =>
+      invoicesApi.updateStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
   });
 
   useEffect(() => {
@@ -397,21 +495,25 @@ export default function InvoiceGenerator() {
 
   const handleDownloadPDF = () => {
     if (generateMutation.data) {
-      generatePDF(generateMutation.data, activePreset);
+      generatePDF(generateMutation.data, activePreset, invoiceClientDetails);
     }
   };
 
   const handleGenerate = () => {
-    if (!selectedProjectId || !dateRange.startDate || !dateRange.endDate) return;
+    if (!selectedProjectId || selectedTimeEntryIds.length === 0) return;
 
     generateMutation.mutate({
       projectId: selectedProjectId,
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
+      timeEntryIds: selectedTimeEntryIds,
+      language,
     });
   };
 
-  if (isProjectsLoading) {
+  const selectedEntryTotal = (unbilledEntries || [])
+    .filter((entry) => selectedTimeEntryIds.includes(entry.id))
+    .reduce((total, entry) => total + entry.duration, 0);
+
+  if (isProjectsLoading || isUnbilledLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
@@ -427,7 +529,7 @@ export default function InvoiceGenerator() {
         <div>
           <h1 className="text-2xl font-bold">Generate Invoice</h1>
           <p className="text-sm text-muted-foreground">
-            Build professional invoice PDFs from tracked time and reusable presets.
+            Select unbilled work, create bilingual invoices, and track payment status.
           </p>
         </div>
         <Button variant="outline" onClick={handleCreatePreset}>
@@ -445,7 +547,10 @@ export default function InvoiceGenerator() {
             <PresetField label="Project">
               <Select
                 value={selectedProjectId?.toString() || ''}
-                onValueChange={(value) => setSelectedProjectId(Number(value))}
+                onValueChange={(value) => {
+                  setSelectedProjectId(Number(value));
+                  setSelectedTimeEntryIds([]);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
@@ -461,24 +566,21 @@ export default function InvoiceGenerator() {
             </PresetField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <PresetField label="Start Date">
-                <Input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(event) =>
-                    setDateRange({ ...dateRange, startDate: event.target.value })
-                  }
-                />
+              <PresetField label="Invoice Language">
+                <Select value={language} onValueChange={(value) => setLanguage(value as 'en' | 'de')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="de">Deutsch</SelectItem>
+                  </SelectContent>
+                </Select>
               </PresetField>
-              <PresetField label="End Date">
-                <Input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(event) =>
-                    setDateRange({ ...dateRange, endDate: event.target.value })
-                  }
-                />
-              </PresetField>
+              <div className="rounded-md bg-gray-50 p-3 text-sm">
+                <span className="block text-gray-500">Selected work</span>
+                <span className="font-medium">{formatDuration(selectedEntryTotal)}</span>
+              </div>
             </div>
 
             <PresetField label="Invoice Preset">
@@ -502,13 +604,64 @@ export default function InvoiceGenerator() {
               </Select>
             </PresetField>
 
+            {selectedProject && (
+              <div className="rounded-md border border-dashed p-3 text-sm">
+                <span className="block font-medium">Bill To</span>
+                <span className="whitespace-pre-line text-gray-600">{invoiceClientDetails}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">Unbilled Work</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setSelectedTimeEntryIds((unbilledEntries || []).map((entry) => entry.id))
+                  }
+                  disabled={!selectedProjectId || !unbilledEntries?.length}
+                >
+                  Select All
+                </Button>
+              </div>
+              <div className="max-h-72 overflow-auto rounded-md border">
+                {(unbilledEntries || []).map((entry) => (
+                  <label
+                    key={entry.id}
+                    className="flex cursor-pointer items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTimeEntryIds.includes(entry.id)}
+                      onChange={(event) => {
+                        setSelectedTimeEntryIds((current) =>
+                          event.target.checked
+                            ? [...current, entry.id]
+                            : current.filter((id) => id !== entry.id)
+                        );
+                      }}
+                    />
+                    <span className="min-w-28">{format(new Date(entry.startTime), 'PP')}</span>
+                    <span className="flex-1">{formatDuration(entry.duration)}</span>
+                  </label>
+                ))}
+                {selectedProjectId && unbilledEntries?.length === 0 && (
+                  <div className="p-4 text-sm text-gray-500">No unbilled work for this project.</div>
+                )}
+                {!selectedProjectId && (
+                  <div className="p-4 text-sm text-gray-500">Select a project to see unbilled work.</div>
+                )}
+              </div>
+            </div>
+
             <Button
               className="w-full"
               onClick={handleGenerate}
               disabled={
                 !selectedProjectId ||
-                !dateRange.startDate ||
-                !dateRange.endDate ||
+                selectedTimeEntryIds.length === 0 ||
                 generateMutation.isPending
               }
             >
@@ -685,6 +838,61 @@ export default function InvoiceGenerator() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoices</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {(invoices || []).map((invoice) => (
+              <div
+                key={invoice.ID}
+                className="grid grid-cols-1 gap-3 rounded-md border p-3 text-sm md:grid-cols-[1fr_1fr_1fr_10rem]"
+              >
+                <div>
+                  <span className="block text-gray-500">Invoice</span>
+                  <span className="font-medium">{invoice.number}</span>
+                </div>
+                <div>
+                  <span className="block text-gray-500">Period</span>
+                  <span>
+                    {format(new Date(invoice.start_date), 'PP')} - {format(new Date(invoice.end_date), 'PP')}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-gray-500">Total</span>
+                  <span>{currency(invoice.total_amount, activePreset.currency)}</span>
+                </div>
+                <Select
+                  value={invoice.status}
+                  onValueChange={(status) =>
+                    statusMutation.mutate({
+                      id: invoice.ID,
+                      status: status as 'draft' | 'sent' | 'paid' | 'overdue',
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+            {(!invoices || invoices.length === 0) && (
+              <div className="rounded-md border p-4 text-sm text-gray-500">
+                No invoices created yet.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

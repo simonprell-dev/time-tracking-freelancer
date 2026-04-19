@@ -10,6 +10,10 @@ interface ProjectResponse {
   name: string;
   description: string;
   hourly_rate: number;
+  client_name: string;
+  client_company: string;
+  client_address: string;
+  client_email: string;
   user_id: number;
   time_entries: any[] | null;
   tasks: any[] | null;
@@ -21,6 +25,10 @@ const transformResponse = (data: ProjectResponse): Project => ({
   name: data.name,
   description: data.description,
   hourlyRate: data.hourly_rate,
+  clientName: data.client_name || '',
+  clientCompany: data.client_company || '',
+  clientAddress: data.client_address || '',
+  clientEmail: data.client_email || '',
   userId: data.user_id
 });
 
@@ -39,7 +47,11 @@ export const projectsApi = {
     const response = await axios.post<ProjectResponse>('/projects', {
       name: data.name,
       description: data.description,
-      hourly_rate: data.hourlyRate // Convert to snake_case when sending to backend
+      hourly_rate: data.hourlyRate,
+      client_name: data.clientName,
+      client_company: data.clientCompany,
+      client_address: data.clientAddress,
+      client_email: data.clientEmail
     });
     return transformResponse(response.data);
   },
@@ -48,7 +60,11 @@ export const projectsApi = {
     const response = await axios.put<ProjectResponse>(`/projects/${id}`, {
       name: data.name,
       description: data.description,
-      hourly_rate: data.hourlyRate // Convert to snake_case when sending to backend
+      hourly_rate: data.hourlyRate,
+      client_name: data.clientName,
+      client_company: data.clientCompany,
+      client_address: data.clientAddress,
+      client_email: data.clientEmail
     });
     return transformResponse(response.data);
   },

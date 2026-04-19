@@ -88,6 +88,8 @@ func main() {
 
 			// Invoices
 			protected.POST("/invoices/generate", handlers.GenerateInvoice)
+			protected.GET("/invoices", handlers.GetInvoices)
+			protected.PATCH("/invoices/:id/status", handlers.UpdateInvoiceStatus)
 		}
 	}
 

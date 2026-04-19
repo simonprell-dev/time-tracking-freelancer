@@ -7,6 +7,7 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/Select';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/common/Card';
+import { isAxiosError } from 'axios';
 
 interface TaskFormProps {
   onSuccess?: () => void;
@@ -65,6 +66,7 @@ export const TaskForm = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.projectId) return;
     mutation.mutate(formData);
   };
 
@@ -85,6 +87,7 @@ export const TaskForm = ({
             <Select
               value={formData.projectId.toString()}
               onValueChange={(value) => setFormData({ ...formData, projectId: parseInt(value) })}
+              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a project" />
@@ -139,6 +142,11 @@ export const TaskForm = ({
               placeholder="e.g., urgent, frontend, bug"
             />
           </div>
+          {mutation.error && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+              {getTaskErrorMessage(mutation.error)}
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-end space-x-2">
           {onCancel && (
@@ -146,7 +154,7 @@ export const TaskForm = ({
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending || !formData.projectId}>
             {mutation.isPending ? 'Saving...' : isEdit ? 'Update Task' : 'Create Task'}
           </Button>
         </CardFooter>
@@ -154,3 +162,11 @@ export const TaskForm = ({
     </Card>
   );
 };
+
+function getTaskErrorMessage(error: unknown) {
+  if (isAxiosError<{ error?: string }>(error)) {
+    return error.response?.data?.error || 'Task could not be saved.';
+  }
+
+  return 'Task could not be saved.';
+}

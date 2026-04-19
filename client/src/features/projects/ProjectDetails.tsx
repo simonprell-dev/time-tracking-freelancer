@@ -6,7 +6,14 @@ import { projectsApi } from '@/api/projects';
 import { timeEntriesApi } from '@/api/time-entries';
 import { Button } from '@/components/common/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectForm } from '@/components/forms/ProjectForm';
 import { Timer } from '@/features/time-entries/Timer';
@@ -57,6 +64,10 @@ export default function ProjectDetails() {
               <Button variant="outline">Edit Project</Button>
             </DialogTrigger>
             <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Project</DialogTitle>
+                <DialogDescription>Update project, rate, and client billing details.</DialogDescription>
+              </DialogHeader>
               <ProjectForm
                 isEdit
                 projectId={project.id}
@@ -108,6 +119,16 @@ export default function ProjectDetails() {
                 <dt className="text-sm text-gray-500">Total Earnings</dt>
                 <dd className="text-2xl font-bold">${totalEarnings.toFixed(2)}</dd>
               </div>
+              {(project.clientName || project.clientCompany || project.clientAddress) && (
+                <div>
+                  <dt className="text-sm text-gray-500">Client</dt>
+                  <dd className="whitespace-pre-line text-sm">
+                    {[project.clientName, project.clientCompany, project.clientAddress]
+                      .filter(Boolean)
+                      .join('\n')}
+                  </dd>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>

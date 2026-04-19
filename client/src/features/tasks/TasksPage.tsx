@@ -6,7 +6,14 @@ import { projectsApi } from '@/api/projects';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { PlusIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/Select';
 import { TaskForm } from '@/components/forms/TaskForm';
 import { TaskList } from './TaskList';
@@ -45,6 +52,10 @@ export default function TasksPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Task</DialogTitle>
+              <DialogDescription>Create a task for one of your projects.</DialogDescription>
+            </DialogHeader>
             <TaskForm 
               onSuccess={() => setIsCreateModalOpen(false)}
               defaultValues={{ projectId: selectedProjectId ? Number(selectedProjectId) : undefined }}

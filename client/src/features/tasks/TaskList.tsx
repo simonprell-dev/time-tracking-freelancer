@@ -4,7 +4,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Task, Project } from '@/types';
 import { tasksApi } from '@/api/tasks';
 import { Button } from '@/components/common/Button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { TaskForm } from '@/components/forms/TaskForm';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +122,10 @@ export function TaskList({ tasks, projects, selectedProjectId }: TaskListProps) 
 
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
         <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update this task and its tags.</DialogDescription>
+          </DialogHeader>
           {editingTask && (
             <TaskForm
               isEdit

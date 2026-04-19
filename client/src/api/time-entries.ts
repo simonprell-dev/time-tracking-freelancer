@@ -13,6 +13,7 @@ interface TimeEntryResponse {
   project_id: number;
   task_id: number | null;
   user_id: number;
+  invoice_id: number | null;
 }
 
 const transformResponse = (data: TimeEntryResponse): TimeEntry => ({
@@ -22,12 +23,16 @@ const transformResponse = (data: TimeEntryResponse): TimeEntry => ({
   duration: data.duration,
   projectId: data.project_id,
   taskId: data.task_id || undefined,
-  userId: data.user_id
+  userId: data.user_id,
+  invoiceId: data.invoice_id || undefined
 });
 
 export const timeEntriesApi = {
-  getAll: async (projectId?: number): Promise<TimeEntry[]> => {
-    const params = projectId ? { project_id: projectId } : undefined;
+  getAll: async (projectId?: number, options?: { unbilled?: boolean }): Promise<TimeEntry[]> => {
+    const params = {
+      ...(projectId ? { project_id: projectId } : {}),
+      ...(options?.unbilled ? { unbilled: true } : {}),
+    };
     const response = await axios.get<TimeEntryResponse[]>('/time-entries', { params });
     return response.data.map(transformResponse);
   },

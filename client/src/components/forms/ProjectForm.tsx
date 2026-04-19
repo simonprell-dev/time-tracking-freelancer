@@ -13,6 +13,10 @@ interface ProjectFormProps {
     name?: string;
     description?: string;
     hourlyRate?: number;
+    clientName?: string;
+    clientCompany?: string;
+    clientAddress?: string;
+    clientEmail?: string;
   };
   isEdit?: boolean;
   projectId?: number;
@@ -30,6 +34,10 @@ export const ProjectForm = ({
     name: defaultValues.name || '',
     description: defaultValues.description || '',
     hourlyRate: defaultValues.hourlyRate || 0,
+    clientName: defaultValues.clientName || '',
+    clientCompany: defaultValues.clientCompany || '',
+    clientAddress: defaultValues.clientAddress || '',
+    clientEmail: defaultValues.clientEmail || '',
   });
 
   const mutation = useMutation({
@@ -90,6 +98,51 @@ export const ProjectForm = ({
               value={formData.hourlyRate}
               onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) })}
               required
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="clientName">
+                Client Name
+              </label>
+              <Input
+                id="clientName"
+                value={formData.clientName}
+                onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="clientCompany">
+                Client Company
+              </label>
+              <Input
+                id="clientCompany"
+                value={formData.clientCompany}
+                onChange={(e) => setFormData({ ...formData, clientCompany: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="clientAddress">
+              Client Address
+            </label>
+            <textarea
+              id="clientAddress"
+              value={formData.clientAddress}
+              onChange={(e) => setFormData({ ...formData, clientAddress: e.target.value })}
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="Street&#10;ZIP City&#10;Country"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="clientEmail">
+              Client Email
+            </label>
+            <Input
+              id="clientEmail"
+              type="email"
+              value={formData.clientEmail}
+              onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
             />
           </div>
         </CardContent>

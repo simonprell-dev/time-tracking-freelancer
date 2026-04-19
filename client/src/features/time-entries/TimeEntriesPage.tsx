@@ -6,6 +6,7 @@ import { projectsApi } from '@/api/projects';
 import { tasksApi } from '@/api/tasks';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
+import { Input } from '@/components/common/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/common/Select';
 import { Timer } from './Timer';
 import {
@@ -29,11 +30,30 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatDuration } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import { isAxiosError } from 'axios';
+
+const toDateTimeInputValue = (date: Date) => {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+};
+
+const today = new Date();
+const defaultStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0);
+const defaultEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 17, 0);
 
 export default function TimeEntriesPage() {
   const queryClient = useQueryClient();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [manualEntry, setManualEntry] = useState({
+    projectId: '',
+    taskId: 'none',
+    startTime: toDateTimeInputValue(defaultStart),
+    endTime: toDateTimeInputValue(defaultEnd),
+    wholeDay: false,
+    wholeDayDate: format(today, 'yyyy-MM-dd'),
+    wholeDayHours: 8,
+  });
 
   const { data: timeEntries, isLoading: isEntriesLoading } = useQuery({
     queryKey: ['time-entries', selectedProjectId],
@@ -57,6 +77,13 @@ export default function TimeEntriesPage() {
     }
   });
 
+  const createMutation = useMutation({
+    mutationFn: timeEntriesApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time-entries'] });
+    }
+  });
+
   const handleFilterChange = (value: string) => {
     setSelectedProjectId(value === "all" ? null : value);
   };
@@ -67,6 +94,31 @@ export default function TimeEntriesPage() {
 
   const getTaskName = (taskId: number) => {
     return tasks?.find(t => t.id === taskId)?.title || 'Unknown Task';
+  };
+
+  const availableTasks = tasks?.filter((task) => {
+    const projectId = Number(manualEntry.projectId);
+    return projectId ? task.projectId === projectId : true;
+  }) || [];
+
+  const handleCreateManualEntry = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!manualEntry.projectId) return;
+
+    const start = manualEntry.wholeDay
+      ? new Date(`${manualEntry.wholeDayDate}T09:00:00`)
+      : new Date(manualEntry.startTime);
+    const end = manualEntry.wholeDay
+      ? new Date(start.getTime() + manualEntry.wholeDayHours * 60 * 60 * 1000)
+      : new Date(manualEntry.endTime);
+
+    createMutation.mutate({
+      projectId: Number(manualEntry.projectId),
+      taskId: manualEntry.taskId === 'none' ? undefined : Number(manualEntry.taskId),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      duration: Math.max(0, Math.round((end.getTime() - start.getTime()) / 1000)),
+    });
   };
 
   if (isEntriesLoading || isProjectsLoading || isTasksLoading) {
@@ -88,6 +140,139 @@ export default function TimeEntriesPage() {
 
       <Card className="p-6">
         <Timer />
+      </Card>
+
+      <Card className="p-6">
+        <form className="space-y-4" onSubmit={handleCreateManualEntry}>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold">Add Time Manually</h2>
+            <p className="text-sm text-gray-500">
+              Add an exact time range or book a whole work day in one step.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Project</label>
+              <Select
+                value={manualEntry.projectId}
+                onValueChange={(value) =>
+                  setManualEntry({ ...manualEntry, projectId: value, taskId: 'none' })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Task</label>
+              <Select
+                value={manualEntry.taskId}
+                onValueChange={(value) => setManualEntry({ ...manualEntry, taskId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Optional task" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No task</SelectItem>
+                  {availableTasks.map((task) => (
+                    <SelectItem key={task.id} value={task.id.toString()}>
+                      {task.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm font-medium md:mt-7">
+              <input
+                type="checkbox"
+                checked={manualEntry.wholeDay}
+                onChange={(event) =>
+                  setManualEntry({ ...manualEntry, wholeDay: event.target.checked })
+                }
+              />
+              Whole day
+            </label>
+          </div>
+
+          {manualEntry.wholeDay ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Date</label>
+                <Input
+                  type="date"
+                  value={manualEntry.wholeDayDate}
+                  onChange={(event) =>
+                    setManualEntry({ ...manualEntry, wholeDayDate: event.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Hours</label>
+                <Input
+                  type="number"
+                  min="0.25"
+                  step="0.25"
+                  value={manualEntry.wholeDayHours}
+                  onChange={(event) =>
+                    setManualEntry({
+                      ...manualEntry,
+                      wholeDayHours: Number(event.target.value),
+                    })
+                  }
+                  required
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Start</label>
+                <Input
+                  type="datetime-local"
+                  value={manualEntry.startTime}
+                  onChange={(event) =>
+                    setManualEntry({ ...manualEntry, startTime: event.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">End</label>
+                <Input
+                  type="datetime-local"
+                  value={manualEntry.endTime}
+                  onChange={(event) =>
+                    setManualEntry({ ...manualEntry, endTime: event.target.value })
+                  }
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {createMutation.error && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+              {getTimeEntryErrorMessage(createMutation.error)}
+            </div>
+          )}
+
+          <Button type="submit" disabled={!manualEntry.projectId || createMutation.isPending}>
+            <Plus className="h-4 w-4 mr-2" />
+            {createMutation.isPending ? 'Adding...' : 'Add Time Entry'}
+          </Button>
+        </form>
       </Card>
 
       <Card>
@@ -182,4 +367,12 @@ export default function TimeEntriesPage() {
       </Card>
     </div>
   );
+}
+
+function getTimeEntryErrorMessage(error: unknown) {
+  if (isAxiosError<{ error?: string }>(error)) {
+    return error.response?.data?.error || 'Time entry could not be saved.';
+  }
+
+  return 'Time entry could not be saved.';
 }
